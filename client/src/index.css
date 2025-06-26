@@ -1,0 +1,28 @@
+/* A more professional and flexible base style for the application */
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    width: 100%;
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+/* A simple reset for better consistency */
+* {
+    box-sizing: border-box;
+}
+
+p{
+    font-size: large;
+}

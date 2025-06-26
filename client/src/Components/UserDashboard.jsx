@@ -1,0 +1,280 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AppBar, Toolbar, Typography, Box, IconButton, Alert, Card, CardContent, Grid, Paper, Chip, Button, Drawer, List, ListItem, ListItemIcon, ListItemText, Avatar, Divider, Fade } from '@mui/material';
+import HomeIcon from '@mui/icons-material/Home';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SettingsIcon from '@mui/icons-material/Settings';
+import MenuIcon from '@mui/icons-material/Menu';
+
+import axios from 'axios';
+import { QRCodeSVG } from 'qrcode.react';
+
+const drawerWidth = 220;
+
+const UserDashboard = ({ user, setIsLoggedIn }) => {
+  const navigate = useNavigate();
+  const [qrCodes, setQrCodes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selectedSection, setSelectedSection] = useState('profile');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    // Check if user is logged in
+    axios.get("http://localhost:3001/check-role", { withCredentials: true })
+      .then(res => {
+        if (!res.data.role) {
+          navigate('/login');
+        } else if (res.data.role.toLowerCase() === 'admin') {
+          navigate('/admin-dashboard');
+        } else {
+          // Fetch user's QR codes
+          fetchUserQRCodes();
+        }
+      })
+      .catch(() => {
+        navigate('/login');
+      });
+  }, [navigate]);
+
+  const fetchUserQRCodes = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("http://localhost:3001/user-qrcodes", { withCredentials: true });
+      setQrCodes(response.data);
+    } catch (error) {
+      console.error("Error fetching user QR codes:", error);
+      setError("Failed to fetch your QR codes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    axios.post("http://localhost:3001/logout", {}, { withCredentials: true })
+      .finally(() => {
+        setIsLoggedIn(false);
+        navigate('/login');
+      });
+  };
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#1746a2' }}>
+      {/* Top Navbar */}
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: '#333' }}>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            edge="start"
+            sx={{ mr: 2, display: { sm: 'block' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h5" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+            AddWise Hub
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => navigate('/home', { state: { user } })}
+            sx={{ mr: 2 }}
+          >
+            Home
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
+        </Toolbar>
+      </AppBar>
+      {/* Sidebar */}
+      <Drawer
+        variant="persistent"
+        open={sidebarOpen}
+        sx={{
+          width: sidebarOpen ? drawerWidth : 60,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box',
+          [`& .MuiDrawer-paper`]: {
+            width: sidebarOpen ? drawerWidth : 60,
+            transition: 'width 0.3s',
+            boxSizing: 'border-box',
+            bgcolor: '#f5f6fa',
+            borderRight: '1px solid #e0e0e0',
+            overflowX: 'hidden',
+          },
+        }}
+      >
+        <Toolbar />
+        <List>
+          <ListItem button selected={selectedSection === 'profile'} onClick={() => setSelectedSection('profile')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><AccountCircleIcon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="Profile" />}
+          </ListItem>
+          <ListItem button selected={selectedSection === 'qrcodes'} onClick={() => setSelectedSection('qrcodes')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><QrCode2Icon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="QR Codes" />}
+          </ListItem>
+          <ListItem button selected={selectedSection === 'settings'} onClick={() => setSelectedSection('settings')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><SettingsIcon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="Settings" />}
+          </ListItem>
+        </List>
+      </Drawer>
+      {/* Main Content */}
+      <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
+        {selectedSection === 'profile' && (
+          <Fade in={true} timeout={600}>
+            <Paper elevation={4} sx={{
+              p: { xs: 3, sm: 5 },
+              mb: 4,
+              width: '100%',
+              maxWidth: 600,
+              mx: 'auto',
+              mt: 8,
+              borderRadius: 5,
+              boxShadow: 6,
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-6px) scale(1.02)',
+                boxShadow: 12,
+              },
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              bgcolor: '#f9fafd',
+            }}>
+              <Avatar sx={{ width: 80, height: 80, bgcolor: '#1976d2', mb: 2, fontSize: 40 }}>
+                {user?.name ? user.name[0].toUpperCase() : '?'}
+              </Avatar>
+              <Typography variant="h5" sx={{ mb: 1, fontWeight: 700, letterSpacing: 1, color: '#222' }}>
+                Profile Information
+              </Typography>
+              <Divider sx={{ width: '100%', mb: 3 }} />
+              <Box sx={{ width: '100%', mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                <Typography sx={{ fontWeight: 500, color: 'text.secondary', minWidth: 120 }}>Username:</Typography>
+                <Typography sx={{ fontWeight: 600, fontSize: '1.1rem', color: '#222' }}>{user?.name || '-'}</Typography>
+              </Box>
+              <Box sx={{ width: '100%', mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                <Typography sx={{ fontWeight: 500, color: 'text.secondary', minWidth: 120 }}>Email:</Typography>
+                <Typography sx={{ fontWeight: 500, fontSize: '1.1rem', color: '#1976d2', wordBreak: 'break-all' }}>{user?.email || '-'}</Typography>
+              </Box>
+              <Box sx={{ width: '100%', mb: 4, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
+                <Typography sx={{ fontWeight: 500, color: 'text.secondary', minWidth: 120 }}>Role:</Typography>
+                <Chip label={user?.role || '-'} color={user?.role === 'admin' ? 'primary' : 'success'} size="medium" sx={{ fontWeight: 600, fontSize: '1rem', textTransform: 'capitalize' }} />
+              </Box>
+              <Button variant="contained" color="primary" fullWidth sx={{ fontWeight: 600, letterSpacing: 1, py: 1, fontSize: '1.1rem', borderRadius: 2 }}>
+                Edit Profile
+              </Button>
+            </Paper>
+          </Fade>
+        )}
+        {selectedSection === 'qrcodes' && (
+          <Box sx={{ p: 4, width: '100%', maxWidth: 1200, mx: 'auto' }}>
+            <Card sx={{ mb: 4, bgcolor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
+              <CardContent>
+                <Typography variant="h5" component="div">
+                  Welcome to Your Dashboard, {user ? user.name : ''}!
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Here you can view your QR codes and manage your account.
+                </Typography>
+              </CardContent>
+            </Card>
+            
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <Typography>Loading your QR codes...</Typography>
+              </Box>
+            ) : qrCodes.length === 0 ? (
+              <Card sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
+                <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                  <QrCode2Icon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No QR Codes Available
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    QR codes will appear here once they are generated by an administrator.
+                  </Typography>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <Typography variant="h6" sx={{ mb: 3 }}>
+                  Your QR Codes ({qrCodes.length})
+                </Typography>
+                
+                <Grid container spacing={3}>
+                  {qrCodes.map((qrCode) => (
+                    <Grid xs={12} sm={6} md={4} lg={3} key={qrCode._id}>
+                      <Card sx={{ 
+                        height: '100%', 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        transition: 'transform 0.2s',
+                        '&:hover': {
+                          transform: 'scale(1.02)',
+                          boxShadow: 4
+                        }
+                      }}>
+                        <CardContent sx={{ 
+                          flexGrow: 1, 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          textAlign: 'center'
+                        }}>
+                          <Box sx={{ 
+                            p: 2, 
+                            bgcolor: '#f5f5f5', 
+                            borderRadius: 2,
+                            mb: 2
+                          }}>
+                            <QRCodeSVG 
+                              value={qrCode.qrValue} 
+                              size={120} 
+                              bgColor="#fff"
+                              level="M"
+                            />
+                          </Box>
+                          
+                          <Typography variant="body2" sx={{ 
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem',
+                            wordBreak: 'break-all',
+                            mb: 1
+                          }}>
+                            {qrCode.qrValue}
+                          </Typography>
+                          
+                          <Typography variant="caption" color="text.secondary">
+                            Created: {new Date(qrCode.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </>
+            )}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+};
+
+export default UserDashboard; 
