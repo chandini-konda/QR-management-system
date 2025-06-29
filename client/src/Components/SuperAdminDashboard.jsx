@@ -870,6 +870,7 @@ function SuperAdminDashboard({ user, setIsLoggedIn }) {
                   required
                   sx={{ mb: 2 }}
                 >
+                  <MenuItem value="none">None (Unassigned)</MenuItem>
                   <MenuItem value="all">All Users</MenuItem>
                   {qrUsers.map(user => (
                     <MenuItem key={user._id} value={user._id}>{user.name} ({user.email})</MenuItem>

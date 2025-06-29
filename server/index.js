@@ -153,6 +153,27 @@ app.post("/generate-qrcodes", requireSuperAdmin, async (req, res) => {
 
         console.log(`[SuperAdmin] Attempting to generate ${count} QR code(s) for selection: ${userId}`);
 
+        // Handle unassigned QR codes
+        if (userId === 'none') {
+            const generatedCodeIds = [];
+            for (let i = 0; i < count; i++) {
+                const qrValue = await generateUniqueQRCodeValue();
+                const newQRCode = new QRCodeModel({
+                    qrValue
+                    // No createdBy field
+                });
+                await newQRCode.save();
+                generatedCodeIds.push(newQRCode._id);
+            }
+            const populatedCodes = await QRCodeModel.find({ 
+                _id: { $in: generatedCodeIds } 
+            });
+            return res.status(201).json({ 
+                codes: populatedCodes, 
+                userCount: 0
+            });
+        }
+
         let usersToProcess = [];
 
         // 3. Determine which users to process
@@ -214,14 +235,15 @@ app.post("/generate-qrcodes", requireSuperAdmin, async (req, res) => {
     }
 });
 
-// Get all QR codes (for admin)
+// Get all QR codes (for admin and superadmin)
 app.get("/qrcodes", async (req, res) => {
     try {
         if (!req.session.user || !['admin', 'superadmin'].includes(req.session.user.role.toLowerCase())) {
             return res.status(403).json({ error: "Access denied" });
         }
 
-        const qrCodes = await QRCodeModel.find({ isActive: true })
+        // Return all QR codes, not just active
+        const qrCodes = await QRCodeModel.find({})
             .populate('createdBy', 'name email')
             .sort({ createdAt: -1 });
 
@@ -241,14 +263,17 @@ app.get("/user-qrcodes", async (req, res) => {
 
         const userId = req.session.user.id;
 
-        // DEFINITIVE FIX: Convert the session's string ID to a Mongoose ObjectId before querying.
-        // This ensures the database can find a match.
-        const userObjectId = new mongoose.Types.ObjectId(userId);
+        let userObjectId;
+        try {
+            userObjectId = new mongoose.Types.ObjectId(userId);
+        } catch (e) {
+            return res.status(400).json({ error: "Invalid user ID" });
+        }
 
         const qrCodes = await QRCodeModel.find({
-            createdBy: userObjectId, // Use the correct ObjectId for the query
+            createdBy: userObjectId,
             isActive: true
-        }).populate('requestId', 'reason status').sort({ createdAt: -1 });
+        }).sort({ createdAt: -1 });
 
         res.json(qrCodes);
 
@@ -443,15 +468,66 @@ app.delete("/delete-admin/:id", async (req, res) => {
     }
 });
 
-// Get all admins (for superadmin)
+// Get all admins (for admin and superadmin)
 app.get("/admins", async (req, res) => {
-    if (!req.session.user || req.session.user.role !== 'superadmin') {
-        return res.status(403).json({ error: "Access denied. Super Admin only." });
+    if (!req.session.user || !['admin', 'superadmin'].includes(req.session.user.role)) {
+        return res.status(403).json({ error: "Access denied." });
     }
     try {
         const admins = await UserModel.find({ role: "admin" }).select('name email _id');
         res.json(admins);
     } catch (error) {
         res.status(500).json({ error: "Failed to fetch admins" });
+    }
+});
+
+// Assign QR code to user (for users to add devices)
+app.post("/assign-qrcode", async (req, res) => {
+    try {
+        if (!req.session.user) {
+            return res.status(401).json({ error: "Not authenticated" });
+        }
+
+        const { qrValue } = req.body;
+        const userId = req.session.user.id;
+
+        // Validate QR code format (16-digit number)
+        const qrRegex = /^\d{16}$/;
+        if (!qrRegex.test(qrValue)) {
+            return res.status(400).json({ error: "Invalid QR code format. Must be a 16-digit number." });
+        }
+
+        // Find the QR code by value
+        const qrCode = await QRCodeModel.findOne({ qrValue, isActive: true });
+        if (!qrCode) {
+            return res.status(404).json({ error: "QR code not found or inactive." });
+        }
+
+        // Check if QR code is already assigned to someone else
+        if (qrCode.createdBy && qrCode.createdBy.toString() !== userId) {
+            return res.status(409).json({ error: "This QR code is already assigned to another user." });
+        }
+
+        // Check if QR code is already assigned to this user
+        if (qrCode.createdBy && qrCode.createdBy.toString() === userId) {
+            return res.status(409).json({ error: "This QR code is already assigned to you." });
+        }
+
+        // Assign the QR code to the user
+        qrCode.createdBy = userId;
+        await qrCode.save();
+
+        res.json({ 
+            message: "QR code assigned successfully", 
+            qrCode: {
+                _id: qrCode._id,
+                qrValue: qrCode.qrValue,
+                createdAt: qrCode.createdAt
+            }
+        });
+
+    } catch (error) {
+        console.error("Error assigning QR code:", error);
+        res.status(500).json({ error: "Failed to assign QR code. Please try again." });
     }
 });

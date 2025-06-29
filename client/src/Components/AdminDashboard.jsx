@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Box, TextField, Button, IconButton, Alert, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, TextField, Button, IconButton, Alert, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Grid, Avatar } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
+import GroupIcon from '@mui/icons-material/Group';
+import PersonIcon from '@mui/icons-material/Person';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -27,6 +32,7 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedSection, setSelectedSection] = useState('welcome');
+  const [admins, setAdmins] = useState([]);
 
   useEffect(() => {
     const checkRoleAndFetchData = async () => {
@@ -37,6 +43,7 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
           return;
         }
         await fetchUsers();
+        await fetchAdmins();
       } catch (err) {
         navigate('/login');
       }
@@ -57,6 +64,15 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
     }
   };
 
+  const fetchAdmins = async () => {
+    try {
+      const response = await axios.get("http://localhost:3001/admins", { withCredentials: true });
+      setAdmins(response.data);
+    } catch (error) {
+      setAdmins([]);
+    }
+  };
+
   const fetchQRCodes = async () => {
     try {
       const response = await axios.get("http://localhost:3001/qrcodes", { withCredentials: true });
@@ -66,6 +82,10 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
       setError("Failed to fetch QR codes");
     }
   };
+
+  useEffect(() => {
+    fetchQRCodes();
+  }, []);
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -228,6 +248,47 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
     }
   };
 
+  // Example: Replace these with your actual state/data
+  const totalUsers = users ? users.length : 0;
+  const totalAdmins = admins ? admins.length : 0;
+  const totalQRCodes = qrCodes ? qrCodes.length : 0;
+  const activeQRCodes = qrCodes ? qrCodes.filter(qr => qr.isActive).length : 0;
+  const inactiveQRCodes = qrCodes ? qrCodes.filter(qr => !qr.isActive).length : 0;
+  const pendingRequests = 0; // Update if you implement a requests system
+
+  const stats = [
+    {
+      label: 'Total Users',
+      value: totalUsers,
+      icon: <GroupIcon />,
+      color: '#1976d2'
+    },
+    {
+      label: 'Total Admins',
+      value: totalAdmins,
+      icon: <PersonIcon />,
+      color: '#43a047'
+    },
+    {
+      label: 'Total QR Codes',
+      value: totalQRCodes,
+      icon: <QrCode2Icon />,
+      color: '#fbc02d'
+    },
+    {
+      label: 'Active QRs',
+      value: activeQRCodes,
+      icon: <CheckCircleIcon />,
+      color: '#388e3c'
+    },
+    {
+      label: 'Inactive QRs',
+      value: inactiveQRCodes,
+      icon: <CancelIcon />,
+      color: '#e53935'
+    }
+  ];
+
   return (
     <>
       {/* Top bar - full width */}
@@ -290,6 +351,45 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
           alignItems: 'center',
         }}
       >
+        {/* Admin Insights Summary Section */}
+        <Box sx={{ mb: 4, width: '100%', maxWidth: 1200 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 2, color: '#1746a2', letterSpacing: 1 }}>
+            Admin Insights
+          </Typography>
+          <Grid container spacing={3}>
+            {stats.map((stat, idx) => (
+              <Grid item xs={12} sm={6} md={4} lg={2} key={stat.label}>
+                <MuiTablePaper
+                  elevation={4}
+                  sx={{
+                    p: 3,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    borderRadius: 3,
+                    bgcolor: '#f9fafd',
+                    boxShadow: 6,
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-4px) scale(1.03)',
+                      boxShadow: 12,
+                    }
+                  }}
+                >
+                  <Avatar sx={{ bgcolor: stat.color, width: 48, height: 48, mb: 1 }}>
+                    {stat.icon}
+                  </Avatar>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#222' }}>
+                    {stat.value}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#555', mt: 0.5 }}>
+                    {stat.label}
+                  </Typography>
+                </MuiTablePaper>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
         {/* Welcome Card (default) */}
         {selectedSection === 'welcome' && (
           <Box sx={{ width: '100%', maxWidth: 600, mb: 4 }}>
