@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Box, TextField, Button, IconButton, Alert, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, TextField, Button, IconButton, Alert, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -25,6 +26,7 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
   const [editUserData, setEditUserData] = useState({ name: '', email: '', role: 'user' });
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedSection, setSelectedSection] = useState('welcome');
 
   useEffect(() => {
     const checkRoleAndFetchData = async () => {
@@ -35,7 +37,6 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
           return;
         }
         await fetchUsers();
-        await fetchQRCodes();
       } catch (err) {
         navigate('/login');
       }
@@ -211,11 +212,11 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
     setDeleteUserOpen(true);
   };
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
+  const handleDeleteUser = async (userId) => {
+    if (!userId) return;
     setDeleteLoading(true);
     try {
-      await axios.delete(`http://localhost:3001/delete-user/${selectedUser}`, { withCredentials: true });
+      await axios.delete(`http://localhost:3001/delete-user/${userId}`, { withCredentials: true });
       setDeleteUserOpen(false);
       setSelectedUser(null);
       fetchUsers();
@@ -228,217 +229,350 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
   };
 
   return (
-    <div>
-      {/* Top bar */}
-      <AppBar position="static">
+    <>
+      {/* Top bar - full width */}
+      <AppBar position="static" sx={{ bgcolor: '#333', width: '100vw', left: 0 }}>
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 0, mr: 2 }}>
+          <Typography variant="h5" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700, mr: 3 }}>
+            AddWise Hub
+          </Typography>
+          <Typography variant="h6" sx={{ fontWeight: 600, mr: 3 }}>
             Admin Dashboard
           </Typography>
-          <IconButton color="inherit" onClick={() => navigate('/home', { state: { user: { name: 'Admin', role: 'admin' } } })}>
+          <Button
+            variant="contained"
+            color={selectedSection === 'qrcodes' ? "secondary" : "primary"}
+            startIcon={<QrCode2Icon />}
+            sx={{ mr: 2, fontWeight: 700 }}
+            onClick={() => setSelectedSection('qrcodes')}
+          >
+            QR Devices
+          </Button>
+          <Button
+            variant="contained"
+            color={selectedSection === 'usermgmt' ? "secondary" : "primary"}
+            sx={{ mr: 2, fontWeight: 700 }}
+            onClick={() => setSelectedSection('usermgmt')}
+          >
+            User Management
+          </Button>
+          <IconButton color="inherit" onClick={() => navigate('/home', { state: { user: { name: 'Admin', role: 'admin' } } })} sx={{ mr: 2 }}>
             <HomeIcon />
           </IconButton>
+          <Button
+            variant="contained"
+            color="error"
+            sx={{ fontWeight: 700 }}
+            onClick={async () => {
+              try {
+                await axios.post('http://localhost:3001/logout', {}, { withCredentials: true });
+                if (typeof setIsLoggedIn === 'function') setIsLoggedIn(false);
+                navigate('/login');
+              } catch (err) {
+                navigate('/login');
+              }
+            }}
+          >
+            Logout
+          </Button>
         </Toolbar>
       </AppBar>
 
       {/* Body */}
-      <Box sx={{ p: 4 }}>
-        <Typography variant="h5">Welcome, Admin!</Typography>
-        
+      <Box
+        sx={{
+          minHeight: 'calc(100vh - 64px)',
+          bgcolor: 'linear-gradient(135deg, #1746a2 0%, #5f8fff 100%)',
+          py: 6,
+          px: { xs: 1, sm: 4 },
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        {/* Welcome Card (default) */}
+        {selectedSection === 'welcome' && (
+          <Box sx={{ width: '100%', maxWidth: 600, mb: 4 }}>
+            <MuiTablePaper elevation={6} sx={{ p: 4, borderRadius: 4, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.97)' }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <Box sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: '#1976d2',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 36,
+                  mb: 2,
+                  fontWeight: 700,
+                  boxShadow: 2,
+                }}>
+                  A
+                </Box>
+                <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                  Welcome, Admin!
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Manage QR codes and users from your dashboard.
+                </Typography>
+              </Box>
+            </MuiTablePaper>
+          </Box>
+        )}
+        {/* QR Codes Section */}
+        {selectedSection === 'qrcodes' && (
+          <Box sx={{ width: '100%', maxWidth: 1200, mb: 6 }}>
+            <MuiTablePaper elevation={4} sx={{ p: 4, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.97)' }}>
+              <Typography variant="h6" sx={{ mb: 3, color: '#1746a2', fontWeight: 700, letterSpacing: 1, textAlign: 'center' }}>
+                QR Codes ({qrCodes.length})
+              </Typography>
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr', lg: '1fr 1fr 1fr 1fr' },
+                gap: 3,
+                justifyContent: 'center',
+              }}>
+                {qrCodes.map((qrCode, idx) => (
+                  <MuiTablePaper key={qrCode._id} elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'center', minWidth: 220, maxWidth: 300, mx: 'auto' }}>
+                    <QRCodeSVG value={qrCode.qrValue} size={100} bgColor="#fff" />
+                    {editIdx === idx ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editValue}
+                          onChange={e => setEditValue(e.target.value)}
+                          style={{ marginTop: 8, fontSize: '1rem', width: '90%' }}
+                        />
+                        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            onClick={() => handleUpdateQR(qrCode._id, editValue)}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="inherit"
+                            size="small"
+                            onClick={() => {
+                              setEditIdx(null);
+                              setEditValue("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
+                      </>
+                    ) : (
+                      <>
+                        <Typography variant="body2" sx={{ mt: 1, fontFamily: 'monospace', fontWeight: 600 }}>{qrCode.qrValue}</Typography>
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                          Assigned to: {qrCode.createdBy ? `${qrCode.createdBy.name} (${qrCode.createdBy.email})` : 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                          Created: {new Date(qrCode.createdAt).toLocaleDateString()}
+                        </Typography>
+                        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            onClick={() => {
+                              setEditIdx(idx);
+                              setEditValue(qrCode.qrValue);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => handleDeleteQR(qrCode._id)}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
+                      </>
+                    )}
+                  </MuiTablePaper>
+                ))}
+              </Box>
+            </MuiTablePaper>
+          </Box>
+        )}
+        {/* User Management Section */}
+        {selectedSection === 'usermgmt' && (
+          <Box sx={{ width: '100%', maxWidth: 900, mb: 4 }}>
+            <MuiTablePaper elevation={4} sx={{ p: 4, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.97)' }}>
+              <Typography variant="h6" sx={{ mb: 3, color: '#1746a2', fontWeight: 700, letterSpacing: 1, textAlign: 'center' }}>
+                User Management
+              </Typography>
+              <Button variant="contained" color="success" sx={{ mb: 2 }} onClick={() => setAddUserOpen(true)}>
+                Add User
+              </Button>
+              <TableContainer component={MuiTablePaper} sx={{ borderRadius: 2 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Name</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Role</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {userLoading ? (
+                      <TableRow><TableCell colSpan={4}>Loading...</TableCell></TableRow>
+                    ) : users.length === 0 ? (
+                      <TableRow><TableCell colSpan={4}>No users found.</TableCell></TableRow>
+                    ) : users.map(user => (
+                      <TableRow key={user._id}>
+                        <TableCell>{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.role}</TableCell>
+                        <TableCell align="right">
+                          <Button size="small" variant="outlined" color="primary" sx={{ mr: 1 }} onClick={() => openEditUserDialog(user)}>Edit</Button>
+                          <Button size="small" variant="outlined" color="error" onClick={() => openDeleteUserDialog(user)}>Delete</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </MuiTablePaper>
+          </Box>
+        )}
+        {/* Alerts */}
         {error && (
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError("")}>
+          <Alert severity="error" sx={{ mb: 2, width: '100%', maxWidth: 600 }} onClose={() => setError("")}>
             {error}
           </Alert>
         )}
-
         {successMessage && (
-          <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccessMessage("")}>
+          <Alert severity="success" sx={{ mb: 2, width: '100%', maxWidth: 600 }} onClose={() => setSuccessMessage("")}>
             {successMessage}
           </Alert>
         )}
-
-        <Alert severity="info" sx={{ mt: 2, mb: 2 }}>
-          Only Super Admins can generate QR codes. You can view and manage existing QR codes below.
-        </Alert>
-
-        <Box sx={{
-          mt: 4,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 4,
-          maxHeight: 500,
-          overflowY: 'auto',
-          border: '1px solid #ccc',
-          p: 4,
-          bgcolor: '#fff',
-          borderRadius: 4,
-          boxShadow: 3
-        }}>
-          {qrCodes.map((qrCode, idx) => (
-            <Box key={qrCode._id} sx={{ textAlign: 'center' }}>
-              <QRCodeSVG value={qrCode.qrValue} size={128} bgColor="#fff" />
-              {editIdx === idx ? (
-                <>
-                  <input
-                    type="text"
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    style={{ marginTop: 8, fontSize: '1rem', width: '90%' }}
-                  />
-                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      size="small"
-                      onClick={() => handleUpdateQR(qrCode._id, editValue)}
-                    >
-                      Save
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="inherit"
-                      size="small"
-                      onClick={() => {
-                        setEditIdx(null);
-                        setEditValue("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </Box>
-                </>
-              ) : (
-                <>
-                  <Typography variant="body2" sx={{ mt: 1 }}>{qrCode.qrValue}</Typography>
-                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                    Assigned to: {qrCode.createdBy ? `${qrCode.createdBy.name} (${qrCode.createdBy.email})` : 'N/A'}
-                  </Typography>
-                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                    Created: {new Date(qrCode.createdAt).toLocaleDateString()}
-                  </Typography>
-                  <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      onClick={() => {
-                        setEditIdx(idx);
-                        setEditValue(qrCode.qrValue);
-                      }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={() => handleDeleteQR(qrCode._id)}
-                    >
-                      Delete
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </Box>
-          ))}
-        </Box>
-
-        {/* User Management Section */}
-        <Box sx={{ mt: 6, mb: 4 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>User Management</Typography>
-          <Button variant="contained" color="success" sx={{ mb: 2 }} onClick={() => setAddUserOpen(true)}>
-            Add User
-          </Button>
-          <TableContainer component={MuiTablePaper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {userLoading ? (
-                  <TableRow><TableCell colSpan={4}>Loading...</TableCell></TableRow>
-                ) : users.length === 0 ? (
-                  <TableRow><TableCell colSpan={4}>No users found.</TableCell></TableRow>
-                ) : users.map(user => (
-                  <TableRow key={user._id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.role}</TableCell>
-                    <TableCell align="right">
-                      <Button size="small" variant="outlined" color="primary" sx={{ mr: 1 }} onClick={() => openEditUserDialog(user)}>Edit</Button>
-                      <Button size="small" variant="outlined" color="error" onClick={() => openDeleteUserDialog(user)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-
+        {/* Delete User Confirmation Dialog */}
+        <Dialog open={deleteUserOpen} onClose={() => setDeleteUserOpen(false)}>
+          <DialogTitle>Delete User</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to delete this user?</Typography>
+            {selectedUser && (
+              <Typography sx={{ mt: 1, fontWeight: 600 }}>
+                {users.find(u => u._id === selectedUser)?.name} ({users.find(u => u._id === selectedUser)?.email})
+              </Typography>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteUserOpen(false)} disabled={deleteLoading}>Cancel</Button>
+            <Button onClick={() => handleDeleteUser(selectedUser)} color="error" variant="contained" disabled={deleteLoading}>
+              {deleteLoading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogActions>
+        </Dialog>
         {/* Add User Dialog */}
         <Dialog open={addUserOpen} onClose={() => setAddUserOpen(false)}>
           <DialogTitle>Add User</DialogTitle>
           <form onSubmit={handleAddUser}>
             <DialogContent sx={{ minWidth: 320 }}>
-              <TextField label="Name" value={userForm.name} onChange={e => setUserForm({ ...userForm, name: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-              <TextField label="Email" type="email" value={userForm.email} onChange={e => setUserForm({ ...userForm, email: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-              <TextField label="Password" type="password" value={userForm.password} onChange={e => setUserForm({ ...userForm, password: e.target.value })} fullWidth required sx={{ mb: 2 }} />
               <TextField
-                select
-                label="Role"
-                value="user"
+                label="Name"
+                value={userForm.name}
+                onChange={e => setUserForm({ ...userForm, name: e.target.value })}
                 fullWidth
                 required
                 sx={{ mb: 2 }}
-                disabled
+              />
+              <TextField
+                label="Email"
+                type="email"
+                value={userForm.email}
+                onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                label="Password"
+                type="password"
+                value={userForm.password}
+                onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                select
+                label="Role"
+                value={userForm.role}
+                onChange={e => setUserForm({ ...userForm, role: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
               >
                 <MenuItem value="user">User</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
               </TextField>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setAddUserOpen(false)} disabled={editLoading}>Cancel</Button>
-              <Button type="submit" variant="contained" color="success" disabled={editLoading}>{editLoading ? 'Adding...' : 'Add User'}</Button>
+              <Button type="submit" variant="contained" color="success" disabled={editLoading}>
+                {editLoading ? 'Adding...' : 'Add User'}
+              </Button>
             </DialogActions>
           </form>
         </Dialog>
-
         {/* Edit User Dialog */}
         <Dialog open={editUserOpen} onClose={() => setEditUserOpen(false)}>
           <DialogTitle>Edit User</DialogTitle>
           <form onSubmit={handleEditUser}>
             <DialogContent sx={{ minWidth: 320 }}>
-              <TextField label="Name" value={editUserData.name} onChange={e => setEditUserData({ ...editUserData, name: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-              <TextField label="Email" type="email" value={editUserData.email} onChange={e => setEditUserData({ ...editUserData, email: e.target.value })} fullWidth required sx={{ mb: 2 }} />
-              <TextField select label="Role" value={editUserData.role} onChange={e => setEditUserData({ ...editUserData, role: e.target.value })} fullWidth required sx={{ mb: 2 }}>
+              <TextField
+                label="Name"
+                value={editUserData.name}
+                onChange={e => setEditUserData({ ...editUserData, name: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                label="Email"
+                type="email"
+                value={editUserData.email}
+                onChange={e => setEditUserData({ ...editUserData, email: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+              />
+              <TextField
+                select
+                label="Role"
+                value={editUserData.role}
+                onChange={e => setEditUserData({ ...editUserData, role: e.target.value })}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+              >
                 <MenuItem value="user">User</MenuItem>
                 <MenuItem value="admin">Admin</MenuItem>
               </TextField>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setEditUserOpen(false)} disabled={editLoading}>Cancel</Button>
-              <Button type="submit" variant="contained" color="primary" disabled={editLoading}>{editLoading ? 'Saving...' : 'Save Changes'}</Button>
+              <Button type="submit" variant="contained" color="primary" disabled={editLoading}>
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </Button>
             </DialogActions>
           </form>
         </Dialog>
-
-        {/* Delete User Dialog */}
-        <Dialog open={deleteUserOpen} onClose={() => setDeleteUserOpen(false)}>
-          <DialogTitle>Delete User</DialogTitle>
-          <DialogContent sx={{ minWidth: 320 }}>
-            <Typography>Are you sure you want to delete this user?</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteUserOpen(false)} disabled={deleteLoading}>Cancel</Button>
-            <Button onClick={handleDeleteUser} variant="contained" color="error" disabled={deleteLoading}>{deleteLoading ? 'Deleting...' : 'Delete User'}</Button>
-          </DialogActions>
-        </Dialog>
       </Box>
-    </div>
+    </>
   );
 };
 

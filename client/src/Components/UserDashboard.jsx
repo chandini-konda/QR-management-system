@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppBar, Toolbar, Typography, Box, IconButton, Alert, Card, CardContent, Grid, Paper, Chip, Button, Drawer, List, ListItem, ListItemIcon, ListItemText, Avatar, Divider, Fade } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, IconButton, Alert, Card, CardContent, Grid, Paper, Chip, Button, Drawer, List, ListItem, ListItemIcon, ListItemText, Avatar, Divider, Fade, TextField, CircularProgress } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import MenuIcon from '@mui/icons-material/Menu';
+import ListItemButton from '@mui/material/ListItemButton';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -57,6 +58,16 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
         setIsLoggedIn(false);
         navigate('/login');
       });
+  };
+
+  const handleDeleteQR = async (qrId) => {
+    try {
+      await axios.delete(`http://localhost:3001/qrcode/${qrId}`, { withCredentials: true });
+      fetchUserQRCodes();
+    } catch (error) {
+      console.error("Error deleting QR code:", error);
+      setError("Failed to delete QR code. Please try again.");
+    }
   };
 
   return (
@@ -114,18 +125,18 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
       >
         <Toolbar />
         <List>
-          <ListItem button selected={selectedSection === 'profile'} onClick={() => setSelectedSection('profile')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+          <ListItemButton selected={selectedSection === 'profile'} onClick={() => setSelectedSection('profile')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
             <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><AccountCircleIcon /></ListItemIcon>
             {sidebarOpen && <ListItemText primary="Profile" />}
-          </ListItem>
-          <ListItem button selected={selectedSection === 'qrcodes'} onClick={() => setSelectedSection('qrcodes')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+          </ListItemButton>
+          <ListItemButton selected={selectedSection === 'qrcodes'} onClick={() => setSelectedSection('qrcodes')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
             <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><QrCode2Icon /></ListItemIcon>
             {sidebarOpen && <ListItemText primary="QR Codes" />}
-          </ListItem>
-          <ListItem button selected={selectedSection === 'settings'} onClick={() => setSelectedSection('settings')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
+          </ListItemButton>
+          <ListItemButton selected={selectedSection === 'settings'} onClick={() => setSelectedSection('settings')} sx={{ justifyContent: sidebarOpen ? 'flex-start' : 'center', px: 2 }}>
             <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><SettingsIcon /></ListItemIcon>
             {sidebarOpen && <ListItemText primary="Settings" />}
-          </ListItem>
+          </ListItemButton>
         </List>
       </Drawer>
       {/* Main Content */}
@@ -177,20 +188,52 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
           </Fade>
         )}
         {selectedSection === 'qrcodes' && (
-          <Box sx={{ p: 4, width: '100%', maxWidth: 1200, mx: 'auto' }}>
-            <Card sx={{ mb: 4, bgcolor: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)' }}>
-              <CardContent>
-                <Typography variant="h5" component="div">
-                  Welcome to Your Dashboard, {user ? user.name : ''}!
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Here you can view your QR codes and manage your account.
-                </Typography>
-              </CardContent>
+          <Box
+            sx={{
+              minHeight: 'calc(100vh - 64px)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: 'linear-gradient(135deg, #1746a2 0%, #5f8fff 100%)',
+              py: 6,
+            }}
+          >
+            <Card
+              sx={{
+                mb: 4,
+                px: 5,
+                py: 4,
+                minWidth: 340,
+                maxWidth: 500,
+                borderRadius: 4,
+                boxShadow: 6,
+                textAlign: 'center',
+                bgcolor: 'rgba(255,255,255,0.95)',
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: '#1976d2',
+                  mx: 'auto',
+                  mb: 2,
+                  fontSize: 32,
+                }}
+              >
+                {user?.name ? user.name[0].toUpperCase() : '?'}
+              </Avatar>
+              <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                Welcome, {user ? user.name : ''}!
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+                Here you can view your QR codes and manage your account.
+              </Typography>
             </Card>
-            
+
             {error && (
-              <Alert severity="error" sx={{ mb: 3 }}>
+              <Alert severity="error" sx={{ mb: 3, width: '100%', maxWidth: 500 }}>
                 {error}
               </Alert>
             )}
@@ -200,7 +243,7 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                 <Typography>Loading your QR codes...</Typography>
               </Box>
             ) : qrCodes.length === 0 ? (
-              <Card sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
+              <Card sx={{ maxWidth: 500, minWidth: 340, mx: 'auto', mt: 2, borderRadius: 4, boxShadow: 4, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.97)' }}>
                 <CardContent sx={{ textAlign: 'center', py: 4 }}>
                   <QrCode2Icon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                   <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -212,63 +255,69 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                 </CardContent>
               </Card>
             ) : (
-              <>
-                <Typography variant="h6" sx={{ mb: 3 }}>
+              <Box sx={{ width: '100%', maxWidth: 1200, mt: 2 }}>
+                <Typography variant="h6" sx={{ mb: 3, color: '#fff', textAlign: 'center', fontWeight: 600, letterSpacing: 1 }}>
                   Your QR Codes ({qrCodes.length})
                 </Typography>
-                
-                <Grid container spacing={3}>
-                  {qrCodes.map((qrCode) => (
-                    <Grid xs={12} sm={6} md={4} lg={3} key={qrCode._id}>
-                      <Card sx={{ 
-                        height: '100%', 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        transition: 'transform 0.2s',
-                        '&:hover': {
-                          transform: 'scale(1.02)',
-                          boxShadow: 4
-                        }
-                      }}>
-                        <CardContent sx={{ 
-                          flexGrow: 1, 
-                          display: 'flex', 
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          textAlign: 'center'
-                        }}>
-                          <Box sx={{ 
-                            p: 2, 
-                            bgcolor: '#f5f5f5', 
+                <Grid container columns={12} spacing={3} justifyContent="center">
+                  {qrCodes.map((qrCode, idx) => (
+                    <Grid key={qrCode._id} item xs={12} sm={6} md={4} lg={3}>
+                      <Card
+                        sx={{
+                          p: 3,
+                          mb: 2,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          borderRadius: 3,
+                          boxShadow: 4,
+                          bgcolor: "#fff",
+                          minHeight: 260,
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 600, mb: 1, color: "#1976d2" }}
+                        >
+                          QR Code #{qrCodes.length - idx}
+                        </Typography>
+                        <Box
+                          sx={{
+                            p: 2,
+                            bgcolor: "#f5f5f5",
                             borderRadius: 2,
-                            mb: 2
-                          }}>
-                            <QRCodeSVG 
-                              value={qrCode.qrValue} 
-                              size={120} 
-                              bgColor="#fff"
-                              level="M"
-                            />
-                          </Box>
-                          
-                          <Typography variant="body2" sx={{ 
-                            fontFamily: 'monospace',
-                            fontSize: '0.875rem',
-                            wordBreak: 'break-all',
-                            mb: 1
-                          }}>
-                            {qrCode.qrValue}
-                          </Typography>
-                          
-                          <Typography variant="caption" color="text.secondary">
-                            Created: {new Date(qrCode.createdAt).toLocaleDateString()}
-                          </Typography>
-                        </CardContent>
+                            mb: 2,
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          }}
+                        >
+                          <QRCodeSVG value={qrCode.qrValue} size={120} bgColor="#fff" level="M" />
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "monospace",
+                            fontSize: "0.95rem",
+                            wordBreak: "break-all",
+                            mb: 1,
+                          }}
+                        >
+                          {qrCode.qrValue}
+                        </Typography>
+                        {/* Show created date */}
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ mt: 1, textAlign: "center" }}
+                        >
+                          Created: {new Date(qrCode.createdAt).toLocaleDateString()}
+                        </Typography>
                       </Card>
                     </Grid>
                   ))}
                 </Grid>
-              </>
+              </Box>
             )}
           </Box>
         )}

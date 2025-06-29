@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Paper, Button, Divider, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert, List, ListItem, ListItemText, CircularProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper } from '@mui/material';
+import { Box, Typography, Paper, Button, Divider, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Snackbar, Alert, List, ListItem, ListItemText, CircularProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Drawer, ListItemIcon, Toolbar, AppBar, IconButton } from '@mui/material';
 import axios from 'axios';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import GroupIcon from '@mui/icons-material/Group';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import MenuIcon from '@mui/icons-material/Menu';
+import AdbIcon from '@mui/icons-material/Adb';
+import { useNavigate } from 'react-router-dom';
 
-function SuperAdminDashboard({ user }) {
+function SuperAdminDashboard({ user, setIsLoggedIn }) {
   // State for Add Admin dialog
   const [addAdminOpen, setAddAdminOpen] = useState(false);
   const [adminName, setAdminName] = useState('');
@@ -57,6 +64,16 @@ function SuperAdminDashboard({ user }) {
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [deleteAllError, setDeleteAllError] = useState("");
   const [deleteAllSuccess, setDeleteAllSuccess] = useState("");
+  const [showQRManagement, setShowQRManagement] = useState(false);
+  const [selectedSection, setSelectedSection] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const drawerWidth = 220;
+  const navigate = useNavigate();
+
+  // Always show dashboard section on mount
+  useEffect(() => {
+    setSelectedSection('dashboard');
+  }, []);
 
   // Fetch QR assignments when dialog opens
   useEffect(() => {
@@ -315,78 +332,291 @@ function SuperAdminDashboard({ user }) {
   };
 
   return (
-    <Box sx={{ p: 4, minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <Paper elevation={4} sx={{ p: 5, maxWidth: 900, width: '100%', textAlign: 'center', borderRadius: 4 }}>
-        <Typography variant="h4" sx={{ mb: 2, fontWeight: 700 }}>
-          Super Admin Dashboard
-        </Typography>
-        <Typography variant="h6" sx={{ mb: 3, color: 'text.secondary' }}>
-          Welcome, Super Admin! Here you can manage all aspects of the system.
-        </Typography>
-        <Divider sx={{ my: 3 }} />
-        <Grid container spacing={4}>
-          {/* QR Code Generation */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'left' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>Generate QR Codes</Typography>
-              <Button variant="contained" color="primary" fullWidth sx={{ mb: 1 }} onClick={openGenerateQRDialog}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#1746a2' }}>
+      {/* AppBar: Only one, with branding */}
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, bgcolor: '#333' }}>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            edge="start"
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h5" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+            AddWise Hub
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mr: 2, fontWeight: 700 }}
+            onClick={() => navigate('/home')}
+          >
+            Home
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            sx={{ fontWeight: 700 }}
+            onClick={async () => {
+              try {
+                await axios.post('http://localhost:3001/logout', {}, { withCredentials: true });
+                if (typeof setIsLoggedIn === 'function') setIsLoggedIn(false);
+                navigate('/login');
+              } catch (err) {
+                // fallback: still redirect
+                navigate('/login');
+              }
+            }}
+          >
+            Logout
+          </Button>
+        </Toolbar>
+      </AppBar>
+      {/* Sidebar Drawer: No branding, no extra gap */}
+      <Drawer
+        variant="permanent"
+        open={sidebarOpen}
+        sx={{
+          width: sidebarOpen ? drawerWidth : 60,
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          boxSizing: 'border-box',
+          [`& .MuiDrawer-paper`]: {
+            width: sidebarOpen ? drawerWidth : 60,
+            transition: 'width 0.3s',
+            boxSizing: 'border-box',
+            bgcolor: '#f5f6fa',
+            borderRight: '1px solid #e0e0e0',
+            overflowX: 'hidden',
+            pt: 0, // Remove any top padding
+          },
+        }}
+      >
+        <Toolbar />
+        {/* Only navigation, no branding */}
+        <List sx={{ pt: 2 }}>
+          <ListItem 
+            button 
+            selected={selectedSection === 'dashboard'} 
+            onClick={() => setSelectedSection('dashboard')}
+            sx={{ 
+              justifyContent: sidebarOpen ? 'flex-start' : 'center', 
+              px: 2,
+              my: 0.5,
+              borderRadius: 2,
+              transition: 'background 0.2s',
+              ...(selectedSection === 'dashboard' && {
+                bgcolor: '#1976d2',
+                color: '#fff',
+                boxShadow: 2,
+                borderLeft: '5px solid #1746a2',
+                '& .MuiListItemIcon-root': { color: '#fff' },
+              }),
+              '&:hover': {
+                bgcolor: selectedSection === 'dashboard' ? '#1565c0' : '#e3e8f0',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><DashboardIcon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="Dashboard" />}
+          </ListItem>
+          <ListItem 
+            button 
+            selected={selectedSection === 'generateqr'} 
+            onClick={() => setSelectedSection('generateqr')}
+            sx={{ 
+              justifyContent: sidebarOpen ? 'flex-start' : 'center', 
+              px: 2,
+              my: 0.5,
+              borderRadius: 2,
+              transition: 'background 0.2s',
+              ...(selectedSection === 'generateqr' && {
+                bgcolor: '#1976d2',
+                color: '#fff',
+                boxShadow: 2,
+                borderLeft: '5px solid #1746a2',
+                '& .MuiListItemIcon-root': { color: '#fff' },
+              }),
+              '&:hover': {
+                bgcolor: selectedSection === 'generateqr' ? '#1565c0' : '#e3e8f0',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><QrCode2Icon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="Generate QR Code" />}
+          </ListItem>
+          <ListItem 
+            button 
+            selected={selectedSection === 'adminmgmt'} 
+            onClick={() => setSelectedSection('adminmgmt')}
+            sx={{ 
+              justifyContent: sidebarOpen ? 'flex-start' : 'center', 
+              px: 2,
+              my: 0.5,
+              borderRadius: 2,
+              transition: 'background 0.2s',
+              ...(selectedSection === 'adminmgmt' && {
+                bgcolor: '#1976d2',
+                color: '#fff',
+                boxShadow: 2,
+                borderLeft: '5px solid #1746a2',
+                '& .MuiListItemIcon-root': { color: '#fff' },
+              }),
+              '&:hover': {
+                bgcolor: selectedSection === 'adminmgmt' ? '#1565c0' : '#e3e8f0',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><ManageAccountsIcon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="Admin Management" />}
+          </ListItem>
+          <ListItem 
+            button 
+            selected={selectedSection === 'qrmgmt'} 
+            onClick={() => setSelectedSection('qrmgmt')}
+            sx={{ 
+              justifyContent: sidebarOpen ? 'flex-start' : 'center', 
+              px: 2,
+              my: 0.5,
+              borderRadius: 2,
+              transition: 'background 0.2s',
+              ...(selectedSection === 'qrmgmt' && {
+                bgcolor: '#1976d2',
+                color: '#fff',
+                boxShadow: 2,
+                borderLeft: '5px solid #1746a2',
+                '& .MuiListItemIcon-root': { color: '#fff' },
+              }),
+              '&:hover': {
+                bgcolor: selectedSection === 'qrmgmt' ? '#1565c0' : '#e3e8f0',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: sidebarOpen ? 2 : 'auto', justifyContent: 'center' }}><GroupIcon /></ListItemIcon>
+            {sidebarOpen && <ListItemText primary="QR Management" />}
+          </ListItem>
+        </List>
+      </Drawer>
+      {/* Main Content: Only offset by AppBar height, no extra containers */}
+      <Box component="main" sx={{ flexGrow: 1, p: 4, mt: 8, width: `calc(100% - ${sidebarOpen ? drawerWidth : 60}px)` }}>
+        {/* Dashboard/Overview Section */}
+        {selectedSection === 'dashboard' && (
+          <Box sx={{ mt: 8, mb: 4, display: 'flex', justifyContent: 'center' }}>
+            <Paper elevation={6} sx={{ p: { xs: 4, sm: 6 }, borderRadius: 4, width: '100%', maxWidth: 900, bgcolor: 'rgba(255,255,255,0.98)', boxShadow: 8, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography variant="h3" sx={{ fontWeight: 800, mb: 2, color: '#1746a2', letterSpacing: 1 }}>
+                Super Admin Dashboard
+              </Typography>
+              <Typography variant="h5" sx={{ mb: 3, color: '#222', fontWeight: 500 }}>
+                Welcome, Super Admin! Here you can manage all aspects of the system.
+              </Typography>
+              <Divider sx={{ width: '80%', my: 3, mx: 'auto', borderColor: '#e0e0e0' }} />
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontSize: '1.15rem', fontWeight: 400, maxWidth: 700 }}>
+                Use the sidebar to navigate between QR code generation, admin management, and QR management features.
+              </Typography>
+            </Paper>
+          </Box>
+        )}
+        {/* Generate QR Code Section */}
+        {selectedSection === 'generateqr' && (
+          <Paper elevation={4} sx={{ p: 5, maxWidth: 600, width: '100%', textAlign: 'center', borderRadius: 4, mx: 'auto' }}>
+            <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>Generate QR Codes</Typography>
+            <Button variant="contained" color="primary" fullWidth sx={{ mb: 2 }} onClick={openGenerateQRDialog}>
                 Generate QR Code
               </Button>
               <Typography variant="body2" color="text.secondary">
                 Only Super Admins can generate QR codes for the system.
               </Typography>
             </Paper>
-          </Grid>
-          {/* Admin Management */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'left' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>Admin Management</Typography>
-              <Button variant="contained" color="success" fullWidth sx={{ mb: 1 }} onClick={() => setAddAdminOpen(true)}>
+        )}
+        {/* Admin Management Section */}
+        {selectedSection === 'adminmgmt' && (
+          <Box sx={{ mt: 6, mb: 4, display: 'flex', justifyContent: 'center' }}>
+            <Paper elevation={6} sx={{ p: { xs: 3, sm: 5 }, borderRadius: 4, width: '100%', maxWidth: 420, bgcolor: 'rgba(255,255,255,0.98)', boxShadow: 8, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, mb: 3, color: '#1746a2', letterSpacing: 1 }}>
+                Admin Management
+              </Typography>
+              <Button 
+                variant="contained" 
+                color="success" 
+                fullWidth 
+                sx={{ mb: 2, py: 1.2, fontWeight: 700, fontSize: '1.1rem', borderRadius: 2, boxShadow: 2 }}
+                onClick={() => setAddAdminOpen(true)}
+              >
                 Add Admin
               </Button>
-              <Button variant="outlined" color="error" fullWidth sx={{ mb: 1 }} onClick={openDeleteAdminDialog}>
+              <Button 
+                variant="outlined" 
+                color="error" 
+                fullWidth 
+                sx={{ mb: 3, py: 1.2, fontWeight: 700, fontSize: '1.1rem', borderRadius: 2, boxShadow: 1, borderWidth: 2 }}
+                onClick={openDeleteAdminDialog}
+              >
                 Delete Admin
               </Button>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, fontSize: '1rem', fontWeight: 400 }}>
                 Super Admins can add or remove admins.
               </Typography>
             </Paper>
-          </Grid>
-          {/* User Management */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'left' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>User Management</Typography>
-              <Button variant="contained" color="success" fullWidth sx={{ mb: 1 }} onClick={() => setAddUserOpen(true)}>
-                Add User
-              </Button>
-              <Button variant="outlined" color="primary" fullWidth sx={{ mb: 1 }} onClick={openEditUserDialog}>
-                Edit User
-              </Button>
-              <Button variant="outlined" color="error" fullWidth sx={{ mb: 1 }} onClick={openDeleteUserDialog}>
-                Delete User
-              </Button>
-              <Typography variant="body2" color="text.secondary">
-                Add, edit, or delete users in the system.
+          </Box>
+        )}
+        {/* QR Management Section */}
+        {selectedSection === 'qrmgmt' && (
+          <Box sx={{ mt: 2, mb: 4, display: 'flex', justifyContent: 'center' }}>
+            <Paper elevation={6} sx={{ p: { xs: 2, sm: 4 }, borderRadius: 4, width: '100%', maxWidth: 1100, bgcolor: 'rgba(255,255,255,0.98)', boxShadow: 8 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, textAlign: 'center', letterSpacing: 1, color: '#1746a2' }}>
+                QR Code Management
               </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                <Button variant="contained" color="error" sx={{ fontWeight: 700, px: 3, py: 1, borderRadius: 2, fontSize: '1rem' }} onClick={() => setDeleteAllDialogOpen(true)}>
+                  Delete All QR Codes
+                </Button>
+              </Box>
+              <TableContainer component={Box} sx={{ borderRadius: 3, overflow: 'auto', boxShadow: 2 }}>
+                <Table sx={{ minWidth: 700, borderRadius: 3, overflow: 'hidden' }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#e3e8f0' }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1746a2', borderTopLeftRadius: 12 }}>QR Code</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1746a2' }}>Assigned User</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1746a2' }}>Created</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1746a2' }}>Status</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1746a2', borderTopRightRadius: 12 }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {qrManagementLoading ? (
+                      <TableRow><TableCell colSpan={5} align="center">Loading...</TableCell></TableRow>
+                    ) : qrManagementCodes.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} align="center">No QR codes found.</TableCell></TableRow>
+                    ) : qrManagementCodes.map((qr, idx) => (
+                      <TableRow key={qr._id} sx={{ bgcolor: idx % 2 === 0 ? '#f7fafd' : '#e9f0fb', transition: 'background 0.2s' }}>
+                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{qr.qrValue}</TableCell>
+                        <TableCell>{qr.createdBy ? `${qr.createdBy.name} (${qr.createdBy.email})` : <span style={{ color: '#888' }}>Unassigned</span>}</TableCell>
+                        <TableCell>{new Date(qr.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <span style={{
+                            display: 'inline-block',
+                            padding: '2px 12px',
+                            borderRadius: 12,
+                            fontWeight: 600,
+                            color: qr.isActive ? '#fff' : '#fff',
+                            background: qr.isActive ? '#43a047' : '#bdbdbd',
+                            fontSize: '0.95rem',
+                          }}>{qr.isActive ? 'Active' : 'Inactive'}</span>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button size="small" variant="outlined" color="error" sx={{ fontWeight: 700, borderRadius: 2, px: 2, py: 0.5 }} onClick={() => openQrDeleteDialog(qr)}>Delete</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
-          </Grid>
-          {/* QR Assignment Management */}
-          <Grid item xs={12} md={6}>
-            <Paper elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'left' }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>QR Assignment Management</Typography>
-              <Button variant="contained" color="info" fullWidth sx={{ mb: 1 }} onClick={() => setViewQRAssignmentsOpen(true)}>
-                View QR Assignments
-              </Button>
-              <Button variant="outlined" color="warning" fullWidth sx={{ mb: 1 }} onClick={() => setManageQRAssignmentsOpen(true)}>
-                Manage QR Assignments
-              </Button>
-              <Typography variant="body2" color="text.secondary">
-                View and manage QR code assignments for all users.
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
-      </Paper>
+          </Box>
+        )}
       {/* Add Admin Dialog */}
       <Dialog open={addAdminOpen} onClose={() => setAddAdminOpen(false)}>
         <DialogTitle>Add Admin</DialogTitle>
@@ -765,43 +995,6 @@ function SuperAdminDashboard({ user }) {
           <Button onClick={() => setManageQRAssignmentsOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
-      {/* QR Code Management Section */}
-      <Box sx={{ mt: 6, mb: 4 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>QR Code Management</Typography>
-        <Button variant="contained" color="error" sx={{ mb: 2 }} onClick={() => setDeleteAllDialogOpen(true)}>
-          Delete All QR Codes
-        </Button>
-        <TableContainer component={MuiTablePaper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>QR Code</TableCell>
-                <TableCell>Assigned User</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {qrManagementLoading ? (
-                <TableRow><TableCell colSpan={5}>Loading...</TableCell></TableRow>
-              ) : qrManagementCodes.length === 0 ? (
-                <TableRow><TableCell colSpan={5}>No QR codes found.</TableCell></TableRow>
-              ) : qrManagementCodes.map(qr => (
-                <TableRow key={qr._id}>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{qr.qrValue}</TableCell>
-                  <TableCell>{qr.createdBy ? `${qr.createdBy.name} (${qr.createdBy.email})` : 'Unassigned'}</TableCell>
-                  <TableCell>{new Date(qr.createdAt).toLocaleDateString()}</TableCell>
-                  <TableCell>{qr.isActive ? 'Active' : 'Inactive'}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" variant="outlined" color="error" onClick={() => openQrDeleteDialog(qr)}>Delete</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Box>
       {/* QR Code Delete Confirmation Dialog */}
       <Dialog open={qrDeleteDialogOpen} onClose={() => setQrDeleteDialogOpen(false)}>
         <DialogTitle>Delete QR Code</DialogTitle>
@@ -856,6 +1049,7 @@ function SuperAdminDashboard({ user }) {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </Box>
     </Box>
   );
 }

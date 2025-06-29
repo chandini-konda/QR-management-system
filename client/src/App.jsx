@@ -22,7 +22,7 @@ function App() {
 function AppContent() {
   const [user, setUser] = useState(null);
   const location = useLocation();
-  const showNavbar = !['/login', '/signup'].includes(location.pathname);
+  const showNavbar = !['/login', '/signup', '/super-admin-dashboard', '/admin-dashboard', '/user-dashboard'].includes(location.pathname);
   const featuresRef = useRef(null);
 
   useEffect(() => {

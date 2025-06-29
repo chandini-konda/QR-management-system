@@ -248,7 +248,7 @@ app.get("/user-qrcodes", async (req, res) => {
         const qrCodes = await QRCodeModel.find({
             createdBy: userObjectId, // Use the correct ObjectId for the query
             isActive: true
-        }).sort({ createdAt: -1 });
+        }).populate('requestId', 'reason status').sort({ createdAt: -1 });
 
         res.json(qrCodes);
 
@@ -363,18 +363,7 @@ app.post("/add-user", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new UserModel({ name, email, password: hashedPassword, role });
         const savedUser = await newUser.save();
-
-        // --- Assign a free QR code (do NOT generate a new one if none available) ---
-        const freeQR = await QRCodeModel.findOneAndUpdate(
-            { createdBy: null },
-            { createdBy: savedUser._id, isActive: true },
-            { new: true }
-        );
-
-        res.status(201).json({
-            user: savedUser,
-            assignedQRCode: freeQR || null // null if none available
-        });
+        res.status(201).json({ user: savedUser });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
