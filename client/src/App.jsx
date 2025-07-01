@@ -7,6 +7,7 @@ import { Navbar } from "./Components/Navbar";
 import AdminDashboard from "./Components/AdminDashboard";
 import UserDashboard from "./Components/UserDashboard";
 import SuperAdminDashboard from "./Components/SuperAdminDashboard";
+import QRMap from "./Components/QRMap";
 // import ProtectedRoute from "./Components/ProtectedRoute";
 import axios from "axios";
 import { Box } from "@mui/material";
@@ -65,6 +66,7 @@ function AppContent() {
                   <Route path="/user-dashboard" element={<UserDashboard user={user} setIsLoggedIn={() => setUser(null)} />} />
                   <Route path="/login" element={!user ? <Login setUser={setUser} /> : user.role === 'superadmin' ? <Navigate to="/super-admin-dashboard" /> : user.role === 'admin' ? <Navigate to="/admin-dashboard" /> : <Navigate to="/user-dashboard" />} />
                   <Route path="/signup" element={!user ? <Signup setUser={setUser} /> : user.role === 'superadmin' ? <Navigate to="/super-admin-dashboard" /> : user.role === 'admin' ? <Navigate to="/admin-dashboard" /> : <Navigate to="/user-dashboard" />} />
+                  <Route path="/qr-map/:qrId" element={<QRMap />} />
               </Routes>
           </Box>
       </Box>

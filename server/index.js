@@ -488,7 +488,7 @@ app.post("/assign-qrcode", async (req, res) => {
             return res.status(401).json({ error: "Not authenticated" });
         }
 
-        const { qrValue } = req.body;
+        const { qrValue, location } = req.body;
         const userId = req.session.user.id;
 
         // Validate QR code format (16-digit number)
@@ -515,6 +515,14 @@ app.post("/assign-qrcode", async (req, res) => {
 
         // Assign the QR code to the user
         qrCode.createdBy = userId;
+        qrCode.assignedAt = new Date();
+        if (location && location.latitude && location.longitude) {
+            qrCode.location = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                address: location.address || ''
+            };
+        }
         await qrCode.save();
 
         res.json({ 
@@ -529,5 +537,18 @@ app.post("/assign-qrcode", async (req, res) => {
     } catch (error) {
         console.error("Error assigning QR code:", error);
         res.status(500).json({ error: "Failed to assign QR code. Please try again." });
+    }
+});
+
+// Get QR code by ID (for map view)
+app.get("/qrcode/:id", async (req, res) => {
+    try {
+        const qrCode = await QRCodeModel.findById(req.params.id);
+        if (!qrCode) {
+            return res.status(404).json({ error: "QR code not found" });
+        }
+        res.json({ qrCode });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch QR code" });
     }
 });

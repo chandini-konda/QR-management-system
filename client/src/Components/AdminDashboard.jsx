@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Box, TextField, Button, IconButton, Alert, Select, MenuItem, InputLabel, FormControl, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper as MuiTablePaper, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, Grid, Avatar } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
@@ -8,6 +8,8 @@ import PersonIcon from '@mui/icons-material/Person';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import Tooltip from '@mui/material/Tooltip';
+import { toPng } from 'html-to-image';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -33,6 +35,7 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedSection, setSelectedSection] = useState('welcome');
   const [admins, setAdmins] = useState([]);
+  const svgRefs = useRef([]);
 
   useEffect(() => {
     const checkRoleAndFetchData = async () => {
@@ -434,73 +437,102 @@ const AdminDashboard = ({ setIsLoggedIn }) => {
                 gap: 3,
                 justifyContent: 'center',
               }}>
-                {qrCodes.map((qrCode, idx) => (
-                  <MuiTablePaper key={qrCode._id} elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'center', minWidth: 220, maxWidth: 300, mx: 'auto' }}>
-                    <QRCodeSVG value={qrCode.qrValue} size={100} bgColor="#fff" />
-                    {editIdx === idx ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editValue}
-                          onChange={e => setEditValue(e.target.value)}
-                          style={{ marginTop: 8, fontSize: '1rem', width: '90%' }}
-                        />
-                        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
-                          <Button
-                            variant="contained"
-                            color="success"
-                            size="small"
-                            onClick={() => handleUpdateQR(qrCode._id, editValue)}
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="inherit"
-                            size="small"
-                            onClick={() => {
-                              setEditIdx(null);
-                              setEditValue("");
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                        </Box>
-                      </>
-                    ) : (
-                      <>
-                        <Typography variant="body2" sx={{ mt: 1, fontFamily: 'monospace', fontWeight: 600 }}>{qrCode.qrValue}</Typography>
-                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                          Assigned to: {qrCode.createdBy ? `${qrCode.createdBy.name} (${qrCode.createdBy.email})` : 'N/A'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                          Created: {new Date(qrCode.createdAt).toLocaleDateString()}
-                        </Typography>
-                        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            size="small"
-                            onClick={() => {
-                              setEditIdx(idx);
-                              setEditValue(qrCode.qrValue);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            onClick={() => handleDeleteQR(qrCode._id)}
-                          >
-                            Delete
-                          </Button>
-                        </Box>
-                      </>
-                    )}
-                  </MuiTablePaper>
-                ))}
+                {qrCodes.map((qrCode, idx) => {
+                  const handleDownloadQR = async () => {
+                    const svg = svgRefs.current[idx];
+                    if (!svg) return;
+                    try {
+                      const dataUrl = await toPng(svg, { backgroundColor: '#fff' });
+                      const link = document.createElement('a');
+                      link.href = dataUrl;
+                      link.download = `QRCode_${qrCode.qrValue}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    } catch (err) {
+                      alert('Failed to download QR code as PNG.');
+                    }
+                  };
+                  return (
+                    <MuiTablePaper key={qrCode._id} elevation={2} sx={{ p: 3, borderRadius: 3, textAlign: 'center', minWidth: 220, maxWidth: 300, mx: 'auto' }}>
+                      <div>
+                        <QRCodeSVG ref={el => svgRefs.current[idx] = el} value={qrCode.qrValue} size={100} bgColor="#fff" />
+                      </div>
+                      {editIdx === idx ? (
+                        <>
+                          <input
+                            type="text"
+                            value={editValue}
+                            onChange={e => setEditValue(e.target.value)}
+                            style={{ marginTop: 8, fontSize: '1rem', width: '90%' }}
+                          />
+                          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              onClick={() => handleUpdateQR(qrCode._id, editValue)}
+                            >
+                              Save
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="inherit"
+                              size="small"
+                              onClick={() => {
+                                setEditIdx(null);
+                                setEditValue("");
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </Box>
+                        </>
+                      ) : (
+                        <>
+                          <Typography variant="body2" sx={{ mt: 1, fontFamily: 'monospace', fontWeight: 600 }}>{qrCode.qrValue}</Typography>
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                            Assigned to: {qrCode.createdBy ? `${qrCode.createdBy.name} (${qrCode.createdBy.email})` : 'N/A'}
+                          </Typography>
+                          <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                            Created: {new Date(qrCode.createdAt).toLocaleDateString()}
+                          </Typography>
+                          <Box sx={{ mt: 1, display: 'flex', justifyContent: 'center', gap: 1 }}>
+                            <Tooltip title="Download QR Code (PNG)">
+                              <Button
+                                variant="outlined"
+                                color="secondary"
+                                size="small"
+                                onClick={handleDownloadQR}
+                              >
+                                Download QR Code
+                              </Button>
+                            </Tooltip>
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              size="small"
+                              onClick={() => {
+                                setEditIdx(idx);
+                                setEditValue(qrCode.qrValue);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              onClick={() => handleDeleteQR(qrCode._id)}
+                            >
+                              Delete
+                            </Button>
+                          </Box>
+                        </>
+                      )}
+                    </MuiTablePaper>
+                  );
+                })}
               </Box>
             </MuiTablePaper>
           </Box>

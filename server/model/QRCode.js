@@ -18,6 +18,14 @@ const QRCodeSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    location: {
+        latitude: { type: Number },
+        longitude: { type: Number },
+        address: { type: String }
+    },
+    assignedAt: {
+        type: Date
     }
 });
 

@@ -15,6 +15,8 @@ import QRScanner from './QRScanner';
 
 const drawerWidth = 220;
 
+const GEOAPIFY_API_KEY = '569ad80a20494ff8940773beaf92b414';
+
 const UserDashboard = ({ user, setIsLoggedIn }) => {
   const navigate = useNavigate();
   const [qrCodes, setQrCodes] = useState([]);
@@ -85,19 +87,55 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
     try {
       setAssigningDevice(true);
       setScannerOpen(false);
-      
-      const response = await axios.post("http://localhost:3001/assign-qrcode", 
-        { qrValue }, 
+
+      // 1. Get user location
+      const getLocation = () => new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('Geolocation is not supported by your browser.'));
+        } else {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+              });
+            },
+            (error) => reject(error)
+          );
+        }
+      });
+
+      let location = null;
+      try {
+        const coords = await getLocation();
+        // 2. Reverse geocode using Geoapify
+        const geoRes = await axios.get(`https://api.geoapify.com/v1/geocode/reverse?lat=${coords.latitude}&lon=${coords.longitude}&apiKey=${GEOAPIFY_API_KEY}`);
+        const address = geoRes.data.features?.[0]?.properties?.formatted || '';
+        location = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          address
+        };
+      } catch (geoError) {
+        // If location fails, continue without address
+        location = null;
+        console.error('Location error:', geoError);
+      }
+
+      // 3. Assign QR code with location
+      const response = await axios.post(
+        "http://localhost:3001/assign-qrcode",
+        { qrValue, location },
         { withCredentials: true }
       );
-      
+
       // Refresh the QR codes list
       await fetchUserQRCodes();
-      
+
       // Show success message
       setError(""); // Clear any previous errors
       setSuccessMessage("Device successfully added!");
-      
+
     } catch (error) {
       console.error("Error assigning QR code:", error);
       setError(error.response?.data?.error || "Failed to assign device. Please try again.");
@@ -351,7 +389,11 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                           boxShadow: 4,
                           bgcolor: "#fff",
                           minHeight: 260,
+                          cursor: 'pointer',
+                          transition: 'box-shadow 0.2s',
+                          '&:hover': { boxShadow: 8 }
                         }}
+                        onClick={() => navigate(`/qr-map/${qrCode._id}`)}
                       >
                         <Typography
                           variant="subtitle2"
@@ -383,13 +425,21 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                         >
                           {qrCode.qrValue}
                         </Typography>
-                        {/* Show created date */}
+                        {/* Show assigned date */}
                         <Typography
                           variant="caption"
                           color="text.secondary"
                           sx={{ mt: 1, textAlign: "center" }}
                         >
-                          Created: {new Date(qrCode.createdAt).toLocaleDateString()}
+                          {`Assigned on: ${new Date(qrCode.assignedAt || qrCode.createdAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                            timeZone: 'Asia/Kolkata'
+                          })} (IST)`}
                         </Typography>
                       </Card>
                     </Grid>
