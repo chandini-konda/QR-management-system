@@ -325,7 +325,7 @@ app.put("/qrcodes/:id", async (req, res) => {
     }
 });
 
-// Delete QR code (soft delete)
+// Delete QR code (hard delete)
 app.delete("/qrcodes/:id", async (req, res) => {
     try {
         if (!req.session.user) {
@@ -348,10 +348,8 @@ app.delete("/qrcodes/:id", async (req, res) => {
             return res.status(403).json({ error: "Access denied" });
         }
 
-        qrCode.isActive = false;
-        await qrCode.save();
-
-        res.json({ message: "QR code deleted successfully" });
+        await QRCodeModel.findByIdAndDelete(qrCodeId);
+        res.json({ message: "QR code deleted permanently" });
     } catch (error) {
         console.error("Error deleting QR code:", error);
         res.status(500).json({ error: error.message });
@@ -543,12 +541,40 @@ app.post("/assign-qrcode", async (req, res) => {
 // Get QR code by ID (for map view)
 app.get("/qrcode/:id", async (req, res) => {
     try {
-        const qrCode = await QRCodeModel.findById(req.params.id);
+        const id = req.params.id.trim();
+        const qrCode = await QRCodeModel.findById(id);
         if (!qrCode) {
             return res.status(404).json({ error: "QR code not found" });
         }
         res.json({ qrCode });
     } catch (error) {
+        console.error("Error fetching QR code:", error);
         res.status(500).json({ error: "Failed to fetch QR code" });
     }
+});
+
+// Update QR code location by qrValue (for Postman-style API)
+app.post('/api/qr/:qrValue', async (req, res) => {
+  try {
+    const { qrValue } = req.params;
+    const { lat, lng, address } = req.body;
+
+    // Find the QR code by value
+    const qrCode = await QRCodeModel.findOne({ qrValue });
+    if (!qrCode) {
+      return res.status(404).json({ error: "QR code not found" });
+    }
+
+    // Update location
+    qrCode.location = {
+      latitude: lat,
+      longitude: lng,
+      address: address || ''
+    };
+    await qrCode.save();
+
+    res.json({ message: "QR code location updated", qrCode });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });

@@ -4,8 +4,18 @@ import axios from 'axios';
 import { Box, Typography, CircularProgress, Paper } from '@mui/material';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { useMap } from 'react-leaflet';
 
 const GEOAPIFY_API_KEY = '569ad80a20494ff8940773beaf92b414';
+
+function ResizeMap() {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+  }, [map]);
+  return null;
+}
 
 const QRMap = () => {
   const { qrId } = useParams();
@@ -17,6 +27,7 @@ const QRMap = () => {
     const fetchQRCode = async () => {
       try {
         setLoading(true);
+        console.log("Fetching QR code with ID:", qrId);
         const res = await axios.get(`http://localhost:3001/qrcode/${qrId}`, { withCredentials: true });
         setQrCode(res.data.qrCode);
         setError('');
@@ -37,19 +48,53 @@ const QRMap = () => {
 
   const { latitude, longitude, address } = qrCode.location;
 
+  const carIcon = L.icon({
+    iconUrl: '/car.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+
   return (
-    <Box sx={{ maxWidth: 700, mx: 'auto', mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 2 }} elevation={4}>
-        <Typography variant="h5" sx={{ mb: 1 }}>QR Code Location</Typography>
-        <Typography variant="subtitle1" sx={{ mb: 2 }}>QR Value: <b>{qrCode.qrValue}</b></Typography>
-        <Typography variant="body2" sx={{ mb: 2 }}>Address: {address || 'Unknown'}</Typography>
-        <Box sx={{ height: 400, width: '100%' }}>
-          <MapContainer center={[latitude, longitude]} zoom={16} style={{ height: '100%', width: '100%' }}>
+    <Box sx={{
+      minHeight: '100vh',
+      minWidth: '100vw',
+      height: '100vh',
+      width: '100vw',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      bgcolor: '#2351c7',
+      p: 0,
+      m: 0
+    }}>
+      <Paper sx={{
+        width: '100vw',
+        height: '100vh',
+        borderRadius: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        p: 0,
+        m: 0
+      }} elevation={0}>
+        <Typography variant="h4" sx={{ mt: 2, mb: 1, textAlign: 'center' }}>QR Code Location</Typography>
+        <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
+          Address: {address || 'Unknown'}
+        </Typography>
+        <Box sx={{ width: '100vw', height: '85vh' }}>
+          <MapContainer
+            center={[latitude, longitude]}
+            zoom={16}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <ResizeMap />
             <TileLayer
-              url={`https://maps.geoapify.com/v1/tile/osm-carto/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`}
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
-            <Marker position={[latitude, longitude]}>
+            <Marker position={[latitude, longitude]} icon={carIcon}>
               <Popup>
                 <b>QR Code Location</b><br />
                 {address || `${latitude}, ${longitude}`}
