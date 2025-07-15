@@ -528,7 +528,8 @@ app.post("/assign-qrcode", async (req, res) => {
             qrCode.location = {
                 latitude: location.latitude,
                 longitude: location.longitude,
-                address: location.address || ''
+                address: location.address || '',
+                timestamp: new Date() // <-- Ensure timestamp is set
             };
         }
         await qrCode.save();
@@ -590,7 +591,8 @@ app.post('/api/qr/:qrValue', async (req, res) => {
     qrCode.location = {
       latitude: lat,
       longitude: lng,
-      address: address || ''
+      address: address || '',
+      timestamp: new Date() // <-- Ensure timestamp is set
     };
 
     await qrCode.save();

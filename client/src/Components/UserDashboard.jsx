@@ -20,6 +20,11 @@ import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import QRScanner from './QRScanner';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import { DialogActions, MenuItem } from '@mui/material';
+import dayjs from 'dayjs';
+
+// NOTE: If you haven't already, run:
+// npm install @mui/x-date-pickers dayjs
 
 const drawerWidth = 220;
 
@@ -37,6 +42,12 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
   const [successMessage, setSuccessMessage] = useState("");
   const [trackModalOpen, setTrackModalOpen] = useState(null); // 'live' or 'route'
   const [selectedQR, setSelectedQR] = useState(null);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filterQR, setFilterQR] = useState('');
+  const [filterStart, setFilterStart] = useState(null);
+  const [filterEnd, setFilterEnd] = useState(null);
+  const [filteredRoute, setFilteredRoute] = useState([]);
+  const [filterError, setFilterError] = useState('');
 
   useEffect(() => {
     // Check if user is logged in
@@ -159,6 +170,42 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
     setScannerOpen(false);
     setError("");
     setSuccessMessage("");
+  };
+
+  // Helper: get filtered route points
+  const handleApplyFilter = () => {
+    setFilterError('');
+    if (!filterQR || !filterStart || !filterEnd) {
+      setFilterError('Please select QR code and both dates.');
+      setFilteredRoute([]);
+      return;
+    }
+    const qr = qrCodes.find(q => q.qrValue === filterQR);
+    if (!qr) {
+      setFilterError('QR code not found.');
+      setFilteredRoute([]);
+      return;
+    }
+    const start = new Date(filterStart);
+    const end = new Date(filterEnd);
+    end.setHours(23, 59, 59, 999); // inclusive end of day
+    // Filter locationHistory
+    let routePoints = (qr.locationHistory || []).filter(pt => {
+      if (!pt.timestamp) return false;
+      const t = new Date(pt.timestamp);
+      return t >= start && t <= end;
+    }).map(pt => ({ ...pt, _isCurrent: false }));
+    // Optionally include current location if timestamp is in range
+    if (qr.location && qr.location.timestamp) {
+      const t = new Date(qr.location.timestamp);
+      if (t >= start && t <= end) {
+        routePoints.push({ ...qr.location, _isCurrent: true });
+      }
+    }
+    setFilteredRoute(routePoints);
+    if (routePoints.length < 2) {
+      setFilterError('Not enough route points in selected range.');
+    }
   };
 
   return (
@@ -290,6 +337,16 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
               py: 6,
             }}
           >
+            {/* Add Filter Route button here */}
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AltRouteIcon />}
+              sx={{ mb: 2, fontWeight: 600, bgcolor: '#1976d2', color: '#fff', alignSelf: 'flex-start' }}
+              onClick={() => setFilterModalOpen(true)}
+            >
+              Filter Route
+            </Button>
             <Card
               sx={{
                 mb: 4,
@@ -565,6 +622,89 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
               </Box>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Filter Route Modal */}
+      <Dialog open={filterModalOpen} onClose={() => setFilterModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Filter QR Route
+          <IconButton
+            aria-label="close"
+            onClick={() => setFilterModalOpen(false)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, mb: 2 }}>
+            <TextField
+              select
+              label="QR Code"
+              value={filterQR}
+              onChange={e => setFilterQR(e.target.value)}
+              sx={{ minWidth: 220 }}
+            >
+              {qrCodes.map(qr => (
+                <MenuItem key={qr.qrValue} value={qr.qrValue}>{qr.qrValue}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Start Date"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filterStart || ''}
+              onChange={e => setFilterStart(e.target.value)}
+              sx={{ minWidth: 180 }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              InputLabelProps={{ shrink: true }}
+              value={filterEnd || ''}
+              onChange={e => setFilterEnd(e.target.value)}
+              sx={{ minWidth: 180 }}
+            />
+          </Box>
+          <DialogActions sx={{ mb: 2 }}>
+            <Button onClick={handleApplyFilter} variant="contained" color="success" startIcon={<AltRouteIcon />}>Apply Filter</Button>
+            <Button onClick={() => setFilterModalOpen(false)} variant="outlined">Close</Button>
+          </DialogActions>
+          {filterError && <Alert severity="warning" sx={{ mb: 2 }}>{filterError}</Alert>}
+          {/* Map Preview */}
+          <Box sx={{ width: '100%', height: 400, mt: 1 }}>
+            {filteredRoute.length >= 2 ? (
+              <MapContainer
+                center={[filteredRoute[0].latitude, filteredRoute[0].longitude]}
+                zoom={6}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; OpenStreetMap contributors'
+                />
+                <Polyline positions={filteredRoute.map(pt => [pt.latitude, pt.longitude])} color="red" />
+                {filteredRoute.map((pt, idx) => (
+                  <Marker key={idx} position={[pt.latitude, pt.longitude]}>
+                    <Popup>
+                      <div>
+                        <div>{pt.address || `${pt.latitude}, ${pt.longitude}`}</div>
+                        <div>{pt.timestamp ? new Date(pt.timestamp).toLocaleString() : ''}</div>
+                        {pt._isCurrent && <div><b>(Current Location)</b></div>}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            ) : (
+              <Box sx={{ width: '100%', height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="h6" color="text.secondary">
+                  {filterError || 'Select QR code and date range to preview route.'}
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </DialogContent>
       </Dialog>
     </Box>
