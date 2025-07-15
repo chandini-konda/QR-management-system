@@ -26,7 +26,15 @@ const QRCodeSchema = new mongoose.Schema({
     },
     assignedAt: {
         type: Date
-    }
+    },
+    locationHistory: [
+      {
+        latitude: { type: Number },
+        longitude: { type: Number },
+        address: { type: String },
+        timestamp: { type: Date, default: Date.now }
+      }
+    ]
 });
 
 const QRCodeModel = mongoose.model("qrcodes", QRCodeSchema);

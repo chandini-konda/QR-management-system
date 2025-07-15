@@ -8,10 +8,18 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import ListItemButton from '@mui/material/ListItemButton';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import CloseIcon from '@mui/icons-material/Close';
+import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
 import QRScanner from './QRScanner';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 
 const drawerWidth = 220;
 
@@ -27,6 +35,8 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [assigningDevice, setAssigningDevice] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [trackModalOpen, setTrackModalOpen] = useState(null); // 'live' or 'route'
+  const [selectedQR, setSelectedQR] = useState(null);
 
   useEffect(() => {
     // Check if user is logged in
@@ -393,7 +403,6 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                           transition: 'box-shadow 0.2s',
                           '&:hover': { boxShadow: 8 }
                         }}
-                        onClick={() => navigate(`/qr-map/${qrCode._id}`)}
                       >
                         <Typography
                           variant="subtitle2"
@@ -441,6 +450,26 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                             timeZone: 'Asia/Kolkata'
                           })} (IST)`}
                         </Typography>
+                        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, mt: 2 }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<PlayArrowIcon />}
+                            onClick={() => { setSelectedQR(qrCode); setTrackModalOpen('live'); }}
+                            sx={{ fontWeight: 600 }}
+                          >
+                            Track Now
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            startIcon={<AltRouteIcon />}
+                            onClick={() => { setSelectedQR(qrCode); setTrackModalOpen('route'); }}
+                            sx={{ fontWeight: 600 }}
+                          >
+                            Show Path
+                          </Button>
+                        </Box>
                       </Card>
                     </Grid>
                   ))}
@@ -457,8 +486,129 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
         onClose={handleScannerClose}
         onScanSuccess={handleQRScanSuccess}
       />
+
+      {/* Live Location Tracking Modal */}
+      <Dialog open={trackModalOpen === 'live'} onClose={() => setTrackModalOpen(null)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          Live Location Tracking
+          <IconButton
+            aria-label="close"
+            onClick={() => setTrackModalOpen(null)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <LiveLocationMap />
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Route Modal */}
+      <Dialog open={trackModalOpen === 'route'} onClose={() => setTrackModalOpen(null)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          QR Route
+          <IconButton
+            aria-label="close"
+            onClick={() => setTrackModalOpen(null)}
+            sx={{ position: 'absolute', right: 8, top: 8 }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {selectedQR && (() => {
+            // Merge locationHistory and location into routePoints
+            const history = Array.isArray(selectedQR.locationHistory) ? selectedQR.locationHistory : [];
+            const currentLoc = selectedQR.location && typeof selectedQR.location.latitude === 'number' && typeof selectedQR.location.longitude === 'number'
+              ? [{ latitude: selectedQR.location.latitude, longitude: selectedQR.location.longitude, address: selectedQR.location.address }]
+              : [];
+            const routePoints = [...history, ...currentLoc];
+            if (routePoints.length < 2) {
+              return (
+                <Box sx={{ width: '100%', height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="h6" color="text.secondary">
+                    No route data found for this QR code.
+                  </Typography>
+                </Box>
+              );
+            }
+            return (
+              <Box sx={{ width: '100%', height: 400 }}>
+                <MapContainer
+                  center={[routePoints[0].latitude, routePoints[0].longitude]}
+                  zoom={6}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; OpenStreetMap contributors'
+                  />
+                  {/* Polyline for the route */}
+                  <Polyline positions={routePoints.map(pt => [pt.latitude, pt.longitude])} color="blue" />
+                  {/* Markers for all points except the last */}
+                  {routePoints.slice(0, -1).map((pt, idx) => (
+                    <Marker key={idx} position={[pt.latitude, pt.longitude]}>
+                      <Popup>
+                        {pt.address || `${pt.latitude}, ${pt.longitude}`}
+                      </Popup>
+                    </Marker>
+                  ))}
+                  {/* Marker for the current location (last point) */}
+                  <Marker position={[routePoints[routePoints.length-1].latitude, routePoints[routePoints.length-1].longitude]}>
+                    <Popup>
+                      Current Location<br />
+                      {routePoints[routePoints.length-1].address || `${routePoints[routePoints.length-1].latitude}, ${routePoints[routePoints.length-1].longitude}`}
+                    </Popup>
+                  </Marker>
+                </MapContainer>
+              </Box>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
 
 export default UserDashboard; 
+
+// LiveLocationMap component
+function LiveLocationMap() {
+  const [userLocation, setUserLocation] = useState(null);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        }
+      );
+    }
+  }, []);
+
+  if (!userLocation) return <Typography>Getting your live location...</Typography>;
+
+  return (
+    <Box sx={{ width: '100%', height: 400 }}>
+      <MapContainer
+        center={[userLocation.latitude, userLocation.longitude]}
+        zoom={16}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; OpenStreetMap contributors'
+        />
+        <Marker position={[userLocation.latitude, userLocation.longitude]} />
+      </MapContainer>
+      <Typography sx={{ mt: 2 }}>
+        <b>Latitude:</b> {userLocation.latitude} <b>Longitude:</b> {userLocation.longitude}
+      </Typography>
+      <Typography>Location updated!</Typography>
+    </Box>
+  );
+} 

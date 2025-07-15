@@ -515,6 +515,16 @@ app.post("/assign-qrcode", async (req, res) => {
         qrCode.createdBy = userId;
         qrCode.assignedAt = new Date();
         if (location && location.latitude && location.longitude) {
+            // Add previous location to history before updating
+            if (qrCode.location && typeof qrCode.location.latitude === 'number' && typeof qrCode.location.longitude === 'number') {
+                qrCode.locationHistory = qrCode.locationHistory || [];
+                qrCode.locationHistory.push({
+                    latitude: qrCode.location.latitude,
+                    longitude: qrCode.location.longitude,
+                    address: qrCode.location.address || '',
+                    timestamp: new Date()
+                });
+            }
             qrCode.location = {
                 latitude: location.latitude,
                 longitude: location.longitude,
@@ -565,12 +575,24 @@ app.post('/api/qr/:qrValue', async (req, res) => {
       return res.status(404).json({ error: "QR code not found" });
     }
 
-    // Update location
+    // Add previous location to history before updating
+    if (qrCode.location && typeof qrCode.location.latitude === 'number' && typeof qrCode.location.longitude === 'number') {
+      qrCode.locationHistory = qrCode.locationHistory || [];
+      qrCode.locationHistory.push({
+        latitude: qrCode.location.latitude,
+        longitude: qrCode.location.longitude,
+        address: qrCode.location.address || '',
+        timestamp: new Date()
+      });
+    }
+
+    // Also update the latest location for quick access
     qrCode.location = {
       latitude: lat,
       longitude: lng,
       address: address || ''
     };
+
     await qrCode.save();
 
     res.json({ message: "QR code location updated", qrCode });
