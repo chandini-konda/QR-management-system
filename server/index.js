@@ -602,3 +602,35 @@ app.post('/api/qr/:qrValue', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Edit own profile (user)
+app.put("/edit-profile", async (req, res) => {
+    if (!req.session.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+        const userId = req.session.user.id;
+        const { name, email, password } = req.body;
+        // Check if email is being changed and is unique
+        if (email) {
+            const existing = await UserModel.findOne({ email, _id: { $ne: userId } });
+            if (existing) {
+                return res.status(400).json({ error: "Email already exists" });
+            }
+        }
+        const update = { name, email };
+        if (password && password.trim() !== "") {
+            update.password = await bcrypt.hash(password, 10);
+        }
+        const updatedUser = await UserModel.findByIdAndUpdate(userId, update, { new: true });
+        if (!updatedUser) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        // Update session info
+        req.session.user.name = updatedUser.name;
+        req.session.user.email = updatedUser.email;
+        res.json({ message: "Profile updated successfully", user: { name: updatedUser.name, email: updatedUser.email, role: updatedUser.role } });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});

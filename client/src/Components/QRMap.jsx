@@ -132,7 +132,7 @@ const QRMap = () => {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             {/* Show user's live location marker */}
-            <Marker position={[userLocation.latitude, userLocation.longitude]}>
+            <Marker position={[userLocation.latitude, userLocation.longitude]} icon={carIcon}>
               <Popup>
                 <b>Your Live Location</b><br />
                 {userLocation.latitude}, {userLocation.longitude}

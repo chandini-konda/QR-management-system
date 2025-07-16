@@ -15,6 +15,7 @@ import DialogContent from '@mui/material/DialogContent';
 import CloseIcon from '@mui/icons-material/Close';
 import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
 import axios from 'axios';
 import { QRCodeSVG } from 'qrcode.react';
@@ -48,6 +49,11 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
   const [filterEnd, setFilterEnd] = useState(null);
   const [filteredRoute, setFilteredRoute] = useState([]);
   const [filterError, setFilterError] = useState('');
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({ name: user?.name || '', email: user?.email || '', password: '' });
+  const [editProfileLoading, setEditProfileLoading] = useState(false);
+  const [editProfileError, setEditProfileError] = useState('');
+  const [editProfileSuccess, setEditProfileSuccess] = useState('');
 
   useEffect(() => {
     // Check if user is logged in
@@ -208,6 +214,13 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
     }
   };
 
+  const carIcon = L.icon({
+    iconUrl: '/car.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#1746a2' }}>
       {/* Top Navbar */}
@@ -319,7 +332,7 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                 <Typography sx={{ fontWeight: 500, color: 'text.secondary', minWidth: 120 }}>Role:</Typography>
                 <Chip label={user?.role || '-'} color={user?.role === 'admin' ? 'primary' : 'success'} size="medium" sx={{ fontWeight: 600, fontSize: '1rem', textTransform: 'capitalize' }} />
               </Box>
-              <Button variant="contained" color="primary" fullWidth sx={{ fontWeight: 600, letterSpacing: 1, py: 1, fontSize: '1.1rem', borderRadius: 2 }}>
+              <Button variant="contained" color="primary" fullWidth sx={{ fontWeight: 600, letterSpacing: 1, py: 1, fontSize: '1.1rem', borderRadius: 2 }} onClick={() => setEditProfileOpen(true)}>
                 Edit Profile
               </Button>
             </Paper>
@@ -605,14 +618,14 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                   <Polyline positions={routePoints.map(pt => [pt.latitude, pt.longitude])} color="blue" />
                   {/* Markers for all points except the last */}
                   {routePoints.slice(0, -1).map((pt, idx) => (
-                    <Marker key={idx} position={[pt.latitude, pt.longitude]}>
+                    <Marker key={idx} position={[pt.latitude, pt.longitude]} icon={carIcon}>
                       <Popup>
                         {pt.address || `${pt.latitude}, ${pt.longitude}`}
                       </Popup>
                     </Marker>
                   ))}
                   {/* Marker for the current location (last point) */}
-                  <Marker position={[routePoints[routePoints.length-1].latitude, routePoints[routePoints.length-1].longitude]}>
+                  <Marker position={[routePoints[routePoints.length-1].latitude, routePoints[routePoints.length-1].longitude]} icon={carIcon}>
                     <Popup>
                       Current Location<br />
                       {routePoints[routePoints.length-1].address || `${routePoints[routePoints.length-1].latitude}, ${routePoints[routePoints.length-1].longitude}`}
@@ -686,7 +699,7 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
                 />
                 <Polyline positions={filteredRoute.map(pt => [pt.latitude, pt.longitude])} color="red" />
                 {filteredRoute.map((pt, idx) => (
-                  <Marker key={idx} position={[pt.latitude, pt.longitude]}>
+                  <Marker key={idx} position={[pt.latitude, pt.longitude]} icon={carIcon}>
                     <Popup>
                       <div>
                         <div>{pt.address || `${pt.latitude}, ${pt.longitude}`}</div>
@@ -706,6 +719,73 @@ const UserDashboard = ({ user, setIsLoggedIn }) => {
             )}
           </Box>
         </DialogContent>
+      </Dialog>
+
+      {/* Edit Profile Dialog */}
+      <Dialog open={editProfileOpen} onClose={() => setEditProfileOpen(false)}>
+        <DialogTitle>Edit Profile</DialogTitle>
+        <DialogContent sx={{ minWidth: 320 }}>
+          {editProfileError && <Alert severity="error" sx={{ mb: 2 }}>{editProfileError}</Alert>}
+          {editProfileSuccess && <Alert severity="success" sx={{ mb: 2 }}>{editProfileSuccess}</Alert>}
+          <TextField
+            label="Username"
+            value={editProfileData.name}
+            onChange={e => setEditProfileData({ ...editProfileData, name: e.target.value })}
+            fullWidth
+            required
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="Email"
+            type="email"
+            value={editProfileData.email}
+            onChange={e => setEditProfileData({ ...editProfileData, email: e.target.value })}
+            fullWidth
+            required
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            label="New Password"
+            type="password"
+            value={editProfileData.password}
+            onChange={e => setEditProfileData({ ...editProfileData, password: e.target.value })}
+            fullWidth
+            sx={{ mb: 2 }}
+            helperText="Leave blank to keep current password"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditProfileOpen(false)} disabled={editProfileLoading}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={editProfileLoading}
+            onClick={async () => {
+              setEditProfileLoading(true);
+              setEditProfileError('');
+              setEditProfileSuccess('');
+              try {
+                const payload = { name: editProfileData.name, email: editProfileData.email };
+                if (editProfileData.password) payload.password = editProfileData.password;
+                const res = await axios.put('http://localhost:3001/edit-profile', payload, { withCredentials: true });
+                setEditProfileSuccess('Profile updated successfully!');
+                setEditProfileError('');
+                setEditProfileOpen(false);
+                // Update user state in parent if possible
+                if (user) {
+                  user.name = editProfileData.name;
+                  user.email = editProfileData.email;
+                }
+              } catch (err) {
+                setEditProfileError(err.response?.data?.error || 'Failed to update profile');
+              } finally {
+                setEditProfileLoading(false);
+              }
+            }}
+          >
+            {editProfileLoading ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
@@ -730,6 +810,13 @@ function LiveLocationMap() {
     }
   }, []);
 
+  const carIcon = L.icon({
+    iconUrl: '/car.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40],
+  });
+
   if (!userLocation) return <Typography>Getting your live location...</Typography>;
 
   return (
@@ -743,7 +830,7 @@ function LiveLocationMap() {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; OpenStreetMap contributors'
         />
-        <Marker position={[userLocation.latitude, userLocation.longitude]} />
+        <Marker position={[userLocation.latitude, userLocation.longitude]} icon={carIcon} />
       </MapContainer>
       <Typography sx={{ mt: 2 }}>
         <b>Latitude:</b> {userLocation.latitude} <b>Longitude:</b> {userLocation.longitude}
